@@ -1,16 +1,7 @@
 // ============================================================
 // AUTH.JS — Google ile giriş + Gmail 6 haneli onay kodu
 // ============================================================
-// Onay kodu mantığı Firebase Extensions > "Trigger Email" eklentisini
-// kullanır. Kurulum:
-//   1. Firebase Console > Extensions > "Trigger Email from Firestore" kur
-//   2. Kendi SMTP bilgilerini (ör. Gmail App Password) eklentiye gir
-//   3. Koleksiyon adını "mail" olarak bırak (varsayılan)
-// Eklenti kurulmadan kod gönderimi çalışmaz — kurana kadar test için
-// kodu ekrana da yazdırıyoruz (DEV_MODE_SHOW_CODE).
-// ============================================================
-
-const DEV_MODE_SHOW_CODE = true; // Eklenti kurulana kadar true bırak, sonra false yap
+const DEV_MODE_SHOW_CODE = true;
 
 let pendingUser = null;
 let pendingCode = null;
@@ -31,27 +22,34 @@ function showStep(step) {
   step.classList.remove('hidden');
 }
 
-// ---- ADIM 1: Google ile giriş ----
+// ---- ADIM 1: Google ile giriş (redirect yöntemi) ----
 document.getElementById('btn-google').addEventListener('click', async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    const result = await auth.signInWithPopup(provider);
-    const user = result.user;
-
-    pendingUser = user;
-
-    const userDoc = await db.collection('users').doc(user.uid).get();
-    isNewUser = !userDoc.exists;
-
-    if (isNewUser) {
-      showStep(stepConsent);
-    } else {
-      await sendVerificationCode();
-    }
+    await auth.signInWithRedirect(provider);
   } catch (err) {
     console.error(err);
-    showMessage('Giriş başarısız: ' + err.message);
+    showMessage('Giriş başlatılamadı: ' + err.message);
   }
+});
+
+// Sayfa Google'dan geri döndüğünde çalışır
+auth.getRedirectResult().then(async (result) => {
+  if (!result || !result.user) return;
+  const user = result.user;
+  pendingUser = user;
+
+  const userDoc = await db.collection('users').doc(user.uid).get();
+  isNewUser = !userDoc.exists;
+
+  if (isNewUser) {
+    showStep(stepConsent);
+  } else {
+    await sendVerificationCode();
+  }
+}).catch((err) => {
+  console.error(err);
+  showMessage('Giriş başarısız: ' + err.message);
 });
 
 // ---- ADIM 2: Kullanım koşulları ----
