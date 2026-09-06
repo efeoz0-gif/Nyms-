@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nyms — Sohbete katıl</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="auth-screen">
+  <div class="auth-hero">
+    <span class="ember-dot"></span>
+    <h1>Sohbetin ateşi<br>hiç sönmesin.</h1>
+    <p>Sunucular kur, arkadaşlarınla sesli takıl, kendi topluluğunu büyüt. nyms, insanların gerçekten bir araya geldiği yer.</p>
+  </div>
+
+  <div class="auth-form-side">
+    <div class="auth-card">
+
+      <!-- Adım 1: Google veya Email seçimi -->
+      <div id="stepChoice">
+        <h2>Aramıza katıl</h2>
+        <p class="sub">Google hesabınla ya da email ile saniyeler içinde katıl.</p>
+
+        <button class="google-btn" id="googleSignInBtn">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.81 2.73v2.27h2.92c1.71-1.57 2.69-3.88 2.69-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.96H.96C.35 6.18 0 7.55 0 9s.35 2.82.96 4.04l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+          Google ile devam et
+        </button>
+
+        <div class="divider">veya</div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="signup">Kayıt Ol</button>
+          <button class="auth-tab" data-tab="login">Giriş Yap</button>
+        </div>
+
+        <!-- Kayıt Ol formu -->
+        <form id="signupForm">
+          <input class="text-field" type="email" id="signupEmail" placeholder="Email adresin" required>
+          <input class="text-field" type="password" id="signupPassword" placeholder="Şifre (en az 6 karakter)" required minlength="6">
+          <div class="form-error" id="signupError"></div>
+          <button class="primary-btn" type="submit" id="signupBtn">Kod Gönder</button>
+        </form>
+
+        <!-- Giriş Yap formu -->
+        <form id="loginForm" class="hidden">
+          <input class="text-field" type="email" id="loginEmail" placeholder="Email adresin" required>
+          <input class="text-field" type="password" id="loginPassword" placeholder="Şifre" required>
+          <div class="form-error" id="loginError"></div>
+          <button class="primary-btn" type="submit">Giriş Yap</button>
+        </form>
+
+        <p class="auth-note">Katılarak, sohbet ettiğin kişilerin kurallara uymasını beklediğin gibi sen de topluluk kurallarına uymayı kabul edersin.</p>
+      </div>
+
+      <!-- Adım 2: Kod doğrulama -->
+      <div id="stepCode" class="hidden">
+        <h2>Kutunu kontrol et</h2>
+        <p class="sub" id="codeSentTo">Email adresine 6 haneli bir kod gönderdik.</p>
+
+        <form id="codeForm">
+          <input class="code-input" type="text" id="codeInput" inputmode="numeric" maxlength="6" placeholder="——————" required>
+          <div class="form-error" id="codeError"></div>
+          <button class="primary-btn" type="submit">Doğrula ve Katıl</button>
+        </form>
+        <button class="link-btn" id="resendCodeBtn">Kodu tekrar gönder</button>
+        <button class="link-btn" id="backToChoiceBtn">← Geri dön</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { signInWithGoogle } from "./js/auth.js";
+  import { startEmailSignup, confirmEmailSignup, signInWithEmail } from "./js/email-verification.js";
+
+  const stepChoice = document.getElementById("stepChoice");
+  const stepCode = document.getElementById("stepCode");
+  let pendingEmail = "", pendingPassword = "";
+
+  // --- Google ---
+  document.getElementById("googleSignInBtn").addEventListener("click", async () => {
+    try {
+      await signInWithGoogle();
+      window.location.href = "app.html";
+    } catch (err) {
+      console.error(err);
+      alert("Google girişi başarısız: " + err.message + "\n\n(Firebase Console → Authentication → Authorized domains kısmını kontrol et)");
+    }
+  });
+
+  // --- Sekme geçişi ---
+  document.querySelectorAll(".auth-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".auth-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const isSignup = tab.dataset.tab === "signup";
+      document.getElementById("signupForm").classList.toggle("hidden", !isSignup);
+      document.getElementById("loginForm").classList.toggle("hidden", isSignup);
+    });
+  });
+
+  // --- Kayıt Ol: kod gönder ---
+  document.getElementById("signupForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("signupEmail").value.trim();
+    const password = document.getElementById("signupPassword").value;
+    const errBox = document.getElementById("signupError");
+    const btn = document.getElementById("signupBtn");
+    errBox.textContent = "";
+    btn.disabled = true;
+    btn.textContent = "Gönderiliyor...";
+
+    try {
+      await startEmailSignup(email, password);
+      pendingEmail = email;
+      pendingPassword = password;
+      document.getElementById("codeSentTo").textContent = `${email} adresine 6 haneli bir kod gönderdik.`;
+      stepChoice.classList.add("hidden");
+      stepCode.classList.remove("hidden");
+    } catch (err) {
+      errBox.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Kod Gönder";
+    }
+  });
+
+  // --- Kod doğrulama ---
+  document.getElementById("codeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("codeInput").value.trim();
+    const errBox = document.getElementById("codeError");
+    errBox.textContent = "";
+
+    try {
+      await confirmEmailSignup(code, pendingEmail, pendingPassword);
+      window.location.href = "app.html";
+    } catch (err) {
+      errBox.textContent = err.message;
+    }
+  });
+
+  document.getElementById("resendCodeBtn").addEventListener("click", async () => {
+    try {
+      await startEmailSignup(pendingEmail, pendingPassword);
+      alert("Yeni kod gönderildi.");
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById("backToChoiceBtn").addEventListener("click", () => {
+    stepCode.classList.add("hidden");
+    stepChoice.classList.remove("hidden");
+  });
+
+  // --- Giriş Yap (mevcut hesap) ---
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const errBox = document.getElementById("loginError");
+    errBox.textContent = "";
+
+    try {
+      await signInWithEmail(email, password);
+      window.location.href = "app.html";
+    } catch (err) {
+      errBox.textContent = "Email veya şifre hatalı";
+    }
+  });
+</script>
+
+</body>
+</html>
