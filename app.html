@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nyms</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app-shell" id="appShell" style="display:none;">
+  <!-- Sunucu rayı (Faz 2'de dolacak) -->
+  <div class="rail">
+    <div class="rail-icon active" title="Arkadaşlar">Ar</div>
+    <div class="rail-icon add" title="Sunucu oluştur">+</div>
+  </div>
+
+  <!-- Arkadaşlar paneli -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Arkadaşlar</h2>
+      <button class="theme-toggle" id="themeToggle">Aydınlık</button>
+    </div>
+    <div class="panel-body">
+      <div class="section-label" id="reqLabel" style="display:none;">Bekleyen İstekler</div>
+      <div id="requestsList"></div>
+
+      <div class="section-label">Arkadaşlarım</div>
+      <div id="friendsList"></div>
+
+      <div class="section-label" id="blockedLabel" style="display:none;">Engellenenler</div>
+      <div id="blockedList"></div>
+    </div>
+
+    <div class="user-footer">
+      <div class="avatar-wrap">
+        <img class="avatar" id="myAvatar" src="" alt="">
+        <span class="status-dot online" id="myStatusDot"></span>
+      </div>
+      <div>
+        <div class="friend-name" id="myName">—</div>
+        <select id="statusSelect" style="background:transparent;border:none;color:var(--text-muted);font-size:0.78rem;">
+          <option value="online">Çevrimiçi</option>
+          <option value="idle">Boşta</option>
+          <option value="dnd">Rahatsız Etmeyin</option>
+          <option value="invisible">Görünmez</option>
+        </select>
+      </div>
+      <button class="mini-btn danger" id="signOutBtn" style="margin-left:auto;">Çıkış</button>
+    </div>
+  </div>
+
+  <!-- Ana alan -->
+  <div class="main-area">
+    <div class="topbar">
+      <h2 style="font-size:1.1rem;">Arkadaş Ekle</h2>
+      <form class="add-friend-form" id="addFriendForm">
+        <input type="text" id="addFriendInput" placeholder="kullaniciadi#1234" required>
+        <button type="submit">Gönder</button>
+      </form>
+    </div>
+    <div class="empty-state">
+      <p>Bir arkadaşını seç ve sohbete başla.<br><span style="font-size:0.85em;">(DM ve sunucular Faz 2–3'te ekleniyor)</span></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth } from "./js/firebase-config.js";
+  import { watchAuthState, signOutUser, updateStatus } from "./js/auth.js";
+  import {
+    sendFriendRequest, acceptFriendRequest, declineFriendRequest,
+    removeFriend, blockUser, unblockUser,
+    listenFriends, listenIncomingRequests, listenBlocked,
+    findUserByUsernameTag
+  } from "./js/friends.js";
+
+  const appShell = document.getElementById("appShell");
+
+  watchAuthState((user, profile) => {
+    appShell.style.display = "grid";
+    document.getElementById("myAvatar").src = profile.photoURL || "https://via.placeholder.com/40";
+    document.getElementById("myName").textContent = `${profile.username}#${profile.tag}`;
+    document.getElementById("statusSelect").value = profile.status;
+    document.getElementById("myStatusDot").className = `status-dot ${profile.status}`;
+
+    listenFriends(user.uid, renderFriends);
+    listenIncomingRequests(user.uid, renderRequests);
+    listenBlocked(user.uid, renderBlocked);
+  }, () => {
+    window.location.href = "index.html";
+  });
+
+  document.getElementById("statusSelect").addEventListener("change", (e) => {
+    updateStatus(e.target.value);
+    document.getElementById("myStatusDot").className = `status-dot ${e.target.value}`;
+  });
+
+  document.getElementById("signOutBtn").addEventListener("click", async () => {
+    await signOutUser();
+  });
+
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const isLight = document.documentElement.dataset.theme === "light";
+    document.documentElement.dataset.theme = isLight ? "" : "light";
+    document.getElementById("themeToggle").textContent = isLight ? "Aydınlık" : "Karanlık";
+  });
+
+  document.getElementById("addFriendForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const val = document.getElementById("addFriendInput").value.trim();
+    const [username, tag] = val.split("#");
+    if (!username || !tag) return alert("Format: kullaniciadi#1234");
+
+    try {
+      const target = await findUserByUsernameTag(username, tag);
+      if (!target) return alert("Kullanıcı bulunamadı.");
+      await sendFriendRequest(target.uid);
+      document.getElementById("addFriendInput").value = "";
+      alert("İstek gönderildi!");
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  function renderRequests(requests) {
+    const list = document.getElementById("requestsList");
+    document.getElementById("reqLabel").style.display = requests.length ? "block" : "none";
+    list.innerHTML = requests.map(r => `
+      <div class="request-row">
+        <img class="avatar" src="${r.fromPhoto || 'https://via.placeholder.com/40'}">
+        <div style="flex:1;">
+          <div class="friend-name">${r.fromUsername}#${r.fromTag}</div>
+          <div class="friend-sub">Arkadaşlık isteği</div>
+        </div>
+        <button class="mini-btn accept" data-accept="${r.id}" data-from="${r.from}" data-to="${r.to}">Kabul</button>
+        <button class="mini-btn danger" data-decline="${r.id}">Reddet</button>
+      </div>
+    `).join("");
+
+    list.querySelectorAll("[data-accept]").forEach(btn => {
+      btn.onclick = () => acceptFriendRequest(btn.dataset.accept, btn.dataset.from, btn.dataset.to);
+    });
+    list.querySelectorAll("[data-decline]").forEach(btn => {
+      btn.onclick = () => declineFriendRequest(btn.dataset.decline);
+    });
+  }
+
+  function renderFriends(friends) {
+    const list = document.getElementById("friendsList");
+    if (!friends.length) {
+      list.innerHTML = `<div class="empty-state">Henüz arkadaşın yok.</div>`;
+      return;
+    }
+    list.innerHTML = friends.map(f => `
+      <div class="friend-row">
+        <div class="avatar-wrap">
+          <img class="avatar" src="${f.photoURL || 'https://via.placeholder.com/40'}">
+          <span class="status-dot ${f.status}"></span>
+        </div>
+        <div style="flex:1;">
+          <div class="friend-name">${f.username}#${f.tag}</div>
+          <div class="friend-sub">${f.customStatus || f.status}</div>
+        </div>
+        <button class="mini-btn danger" data-remove="${f.uid}">Sil</button>
+        <button class="mini-btn danger" data-block="${f.uid}">Engelle</button>
+      </div>
+    `).join("");
+
+    list.querySelectorAll("[data-remove]").forEach(btn => {
+      btn.onclick = () => removeFriend(auth.currentUser.uid, btn.dataset.remove);
+    });
+    list.querySelectorAll("[data-block]").forEach(btn => {
+      btn.onclick = () => {
+        if (confirm("Bu kişiyi engellemek istediğine emin misin?")) {
+          blockUser(auth.currentUser.uid, btn.dataset.block);
+        }
+      };
+    });
+  }
+
+  function renderBlocked(blocked) {
+    const list = document.getElementById("blockedList");
+    document.getElementById("blockedLabel").style.display = blocked.length ? "block" : "none";
+    list.innerHTML = blocked.map(b => `
+      <div class="friend-row">
+        <img class="avatar" src="${b.photoURL || 'https://via.placeholder.com/40'}">
+        <div style="flex:1;">
+          <div class="friend-name">${b.username}#${b.tag}</div>
+        </div>
+        <button class="mini-btn" data-unblock="${b.uid}">Kaldır</button>
+      </div>
+    `).join("");
+
+    list.querySelectorAll("[data-unblock]").forEach(btn => {
+      btn.onclick = () => unblockUser(auth.currentUser.uid, btn.dataset.unblock);
+    });
+  }
+</script>
+
+</body>
+</html>
