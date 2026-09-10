@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nyms</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app-shell" id="appShell" style="display:none;">
+  <!-- Sunucu rayı -->
+  <div class="rail">
+    <div class="rail-icon" id="homeIcon" title="Arkadaşlar">Ar</div>
+    <div class="rail-sep"></div>
+    <div id="serverIconList"></div>
+    <div class="rail-icon add" id="addServerIcon" title="Sunucu ekle/oluştur">+</div>
+  </div>
+
+  <!-- Sol panel: Arkadaşlar VEYA Kanal listesi -->
+  <div class="panel">
+    <!-- Arkadaşlar görünümü -->
+    <div id="friendsPanelView">
+      <div class="panel-header">
+        <h2>Arkadaşlar</h2>
+        <div style="display:flex; gap:6px;">
+          <button class="mini-btn" id="openAddFriendBtn" title="Arkadaş ekle">+ Arkadaş</button>
+          <button class="theme-toggle" id="themeToggle">Aydınlık</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="section-label">Mesajlar</div>
+        <button class="mini-btn" id="newGroupBtn" style="margin:0 8px 8px;">+ Grup sohbeti</button>
+        <div id="dmThreadsList"></div>
+
+        <div class="section-label" id="reqLabel" style="display:none;">Bekleyen İstekler</div>
+        <div id="requestsList"></div>
+        <div class="section-label">Arkadaşlarım</div>
+        <div id="friendsList"></div>
+        <div class="section-label" id="blockedLabel" style="display:none;">Engellenenler</div>
+        <div id="blockedList"></div>
+      </div>
+    </div>
+
+    <!-- Sunucu kanal görünümü -->
+    <div id="serverPanelView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+      <div class="panel-header">
+        <h2 id="serverNameLabel">Sunucu</h2>
+        <div style="display:flex; gap:6px;">
+          <button class="theme-toggle" id="serverInviteBtn" title="Davet kodunu göster">Davet</button>
+          <button class="theme-toggle hidden" id="serverSettingsBtn" title="Sunucu ayarları">⚙</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="section-label">Metin Kanalları</div>
+        <div id="textChannelList"></div>
+        <div class="section-label">Ses Kanalları</div>
+        <div id="voiceChannelList"></div>
+        <button class="mini-btn" id="addChannelBtn" style="margin:10px;">+ Kanal ekle</button>
+      </div>
+    </div>
+
+    <div class="user-footer">
+      <div class="avatar-wrap">
+        <span id="myAvatarWrap" style="cursor:pointer;" title="Profil fotoğrafını değiştir"></span>
+        <span class="status-dot online" id="myStatusDot"></span>
+      </div>
+      <div>
+        <div class="friend-name" id="myName">—</div>
+        <select id="statusSelect" style="background:transparent;border:none;color:var(--text-muted);font-size:0.78rem;">
+          <option value="online">Çevrimiçi</option>
+          <option value="idle">Boşta</option>
+          <option value="dnd">Rahatsız Etmeyin</option>
+          <option value="invisible">Görünmez</option>
+        </select>
+      </div>
+      <button class="mini-btn danger" id="signOutBtn" style="margin-left:auto;">Çıkış</button>
+    </div>
+  </div>
+
+  <!-- Ana alan -->
+  <div class="main-area">
+    <!-- Ana ekran: arkadaş ekleme -->
+    <div id="homeMainView">
+      <div class="topbar">
+        <h2 style="font-size:1.1rem; display:flex; align-items:center;">
+          <button class="back-btn" id="backFromHomeBtn">←</button>
+          Arkadaş Ekle
+        </h2>
+        <form class="add-friend-form" id="addFriendForm">
+          <input type="text" id="addFriendInput" placeholder="kullaniciadi#1234" required>
+          <button type="submit">Gönder</button>
+        </form>
+      </div>
+      <div class="empty-state">
+        <p>Bir arkadaşını seç ve sohbete başla,<br>ya da soldaki <strong>+</strong> ile bir sunucu kur.</p>
+      </div>
+    </div>
+
+    <!-- Mesaj görünümü (hem metin kanalı hem DM/grup için ortak) -->
+    <div id="textChannelMainView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+      <div class="topbar">
+        <h2 style="font-size:1.1rem; display:flex; align-items:center;">
+          <button class="back-btn" id="backFromChatBtn">←</button>
+          <span id="activeChatHeader"><span class="hash">#</span> <span id="activeChannelName">genel</span></span>
+        </h2>
+        <button class="mini-btn hidden" id="showMembersBtn">Üyeler</button>
+      </div>
+      <div class="messages-scroll" id="messagesScroll"></div>
+      <div class="typing-indicator" id="typingIndicator"></div>
+      <div class="composer">
+        <div class="composer-reply-bar hidden" id="replyBar">
+          <span id="replyBarText"></span>
+          <button class="mini-btn" id="cancelReplyBtn">✕</button>
+        </div>
+        <div class="composer-input-wrap">
+          <textarea id="messageInput" rows="1" placeholder="Mesaj yaz... (**kalın**, *italik*, ||spoiler||)"></textarea>
+          <button class="mini-btn" id="sendMessageBtn">Gönder</button>
+        </div>
+        <div class="composer-hint">Enter: gönder · Shift+Enter: yeni satır · ||metin||: spoiler</div>
+      </div>
+    </div>
+
+    <!-- Ses kanalı görünümü -->
+    <div id="voiceChannelMainView" class="hidden voice-placeholder">
+      <button class="back-btn" id="backFromVoiceBtn" style="align-self:flex-start; margin:16px 0 0 16px;">← Geri</button>
+      <h2 id="activeVoiceChannelName" style="font-size:1.3rem;"></h2>
+
+      <div id="voiceParticipantsList" style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center; max-width:520px;"></div>
+
+      <div id="voiceJoinArea">
+        <button class="primary-btn" id="voiceJoinBtn" style="padding:14px 32px;">🎙 Sesli Kanala Katıl</button>
+        <p class="composer-hint" style="text-align:center; margin-top:10px;">Mikrofon izni isteyecek.</p>
+      </div>
+
+      <div id="voiceControlsArea" class="hidden" style="display:flex; gap:12px;">
+        <button class="mini-btn" id="voiceMuteBtn" style="padding:10px 20px;">🎤 Sustur</button>
+        <button class="mini-btn danger" id="voiceLeaveBtn" style="padding:10px 20px;">Kanaldan Ayrıl</button>
+      </div>
+
+      <p class="form-error" id="voiceError"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Sunucu oluştur / katıl modalı -->
+<div class="modal-backdrop hidden" id="serverModal">
+  <div class="modal-box" style="position:relative;">
+    <button class="modal-close" id="closeServerModal">✕</button>
+    <div class="modal-tabs">
+      <button class="auth-tab active" data-modaltab="create">Oluştur</button>
+      <button class="auth-tab" data-modaltab="join">Katıl</button>
+    </div>
+    <div id="createServerTab">
+      <h3>Yeni sunucu</h3>
+      <p class="sub">Sunucuna bir isim ver, davet kodun otomatik oluşur.</p>
+      <input class="text-field" id="newServerName" placeholder="Sunucu adı" required>
+      <div class="form-error" id="createServerError"></div>
+      <button class="primary-btn" id="createServerBtn">Oluştur</button>
+    </div>
+    <div id="joinServerTab" class="hidden">
+      <h3>Davetle katıl</h3>
+      <p class="sub">Arkadaşından aldığın 7 haneli davet kodunu gir.</p>
+      <input class="text-field" id="joinServerCode" placeholder="ör. AB3D9KX" required>
+      <div class="form-error" id="joinServerError"></div>
+      <button class="primary-btn" id="joinServerBtn">Katıl</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kanal ekle modalı -->
+<div class="modal-backdrop hidden" id="channelModal">
+  <div class="modal-box" style="position:relative;">
+    <button class="modal-close" id="closeChannelModal">✕</button>
+    <h3>Yeni kanal</h3>
+    <input class="text-field" id="newChannelName" placeholder="kanal-adı" required>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-channeltype="text">Metin</button>
+      <button class="auth-tab" data-channeltype="voice">Ses</button>
+    </div>
+    <button class="primary-btn" id="createChannelBtn">Oluştur</button>
+  </div>
+</div>
+
+<!-- Sunucu ayarları modalı -->
+<div class="modal-backdrop hidden" id="serverSettingsModal">
+  <div class="modal-box" style="position:relative;">
+    <button class="modal-close" id="closeServerSettingsModal">✕</button>
+    <h3>Sunucu ayarları</h3>
+    <p class="sub">Sadece sunucunun kurucusu görebilir.</p>
+
+    <h4 style="font-size:0.8rem; color:var(--text-muted); margin:14px 0 8px;">İsim</h4>
+    <div class="profile-row">
+      <input type="text" class="text-field" id="serverRenameInput" style="margin-bottom:0;">
+      <button class="mini-btn" id="serverRenameSaveBtn">Kaydet</button>
+    </div>
+
+    <h4 style="font-size:0.8rem; color:var(--text-muted); margin:20px 0 8px;">Tehlikeli bölge</h4>
+    <button class="primary-btn" id="serverDeleteBtn" style="background:var(--danger); color:#fff;">Sunucuyu kalıcı olarak sil</button>
+    <div class="form-error" id="serverSettingsError" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- Emoji profil fotoğrafı seçim modalı -->
+<div class="modal-backdrop hidden" id="avatarPickerModal">
+  <div class="modal-box" style="position:relative;">
+    <button class="modal-close" id="closeAvatarPickerModal">✕</button>
+    <h3>Profil fotoğrafı seç</h3>
+    <p class="sub">Storage kullanmıyoruz — hazır bir emoji seç, o senin profil fotoğrafın olsun.</p>
+    <div class="avatar-picker-grid" id="avatarPickerGrid"></div>
+  </div>
+</div>
+
+<div class="global-voice-bar hidden" id="globalVoiceBar">
+  <span id="globalVoiceBarText">🎙 Sesli kanalda</span>
+  <button class="mini-btn" id="globalVoiceReturnBtn">Kanala dön</button>
+  <button class="mini-btn danger" id="globalVoiceLeaveBtn">Ayrıl</button>
+</div>
+
+<!-- Sunucu üye listesi çekmecesi -->
+<div class="members-drawer" id="membersDrawer">
+  <div class="members-drawer-header">
+    <h3 style="font-size:1rem;">Üyeler</h3>
+    <button class="modal-close" id="closeMembersDrawer" style="position:static;">✕</button>
+  </div>
+  <div class="members-drawer-body" id="membersDrawerList"></div>
+</div>
+
+<!-- Kullanıcı profili / moderasyon modalı -->
+<div class="modal-backdrop hidden" id="profileModal">
+  <div class="modal-box" style="position:relative; max-width:400px; max-height:85vh; overflow-y:auto;">
+    <button class="modal-close" id="closeProfileModal">✕</button>
+    <span id="profileAvatarWrap" style="display:flex; justify-content:center; margin-bottom:12px;"></span>
+    <h3 style="text-align:center;" id="profileNameDisplay">—</h3>
+    <p class="sub" style="text-align:center;" id="profileStatusDisplay"></p>
+    <div style="text-align:center;">
+      <button class="mini-btn hidden" id="profileChangeAvatarBtn">Profil fotoğrafını değiştir</button>
+    </div>
+
+    <div id="profileAdminSection" class="profile-section hidden">
+      <h4>Moderasyon (sadece sen görebilirsin)</h4>
+
+      <div class="profile-row">
+        <button class="mini-btn danger" id="profileBanBtn" style="flex:1;">Banla</button>
+        <button class="mini-btn" id="profileUnbanBtn" style="flex:1;">Ban kaldır</button>
+      </div>
+      <div class="profile-row">
+        <button class="mini-btn danger" id="profileMuteBtn" style="flex:1;">Sustur</button>
+        <button class="mini-btn" id="profileUnmuteBtn" style="flex:1;">Susturmayı kaldır</button>
+      </div>
+
+      <h4 style="margin-top:16px;">Ünvan</h4>
+      <div class="profile-row">
+        <input type="text" id="profileTitleInput" placeholder="ör. Kurucu, VIP...">
+        <button class="mini-btn" id="profileTitleSaveBtn">Kaydet</button>
+      </div>
+
+      <h4 style="margin-top:16px;">Kullanıcı adını değiştir</h4>
+      <div class="profile-row">
+        <input type="text" id="profileNicknameInput" placeholder="yeni-kullaniciadi">
+        <button class="mini-btn" id="profileNicknameSaveBtn">Kaydet</button>
+      </div>
+
+      <h4 style="margin-top:16px;">İsim rengi</h4>
+      <div class="profile-row">
+        <input type="color" id="profileColorInput" value="#e8873a">
+        <button class="mini-btn" id="profileColorSaveBtn">Uygula</button>
+        <button class="mini-btn danger" id="profileColorClearBtn">Kaldır</button>
+      </div>
+
+      <div class="form-error" id="profileError" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Davet kodu modalı -->
+<div class="modal-backdrop hidden" id="inviteModal">
+  <div class="modal-box" style="position:relative; text-align:center;">
+    <button class="modal-close" id="closeInviteModal">✕</button>
+    <h3>Davet kodu</h3>
+    <p class="sub">Bu kodu arkadaşlarınla paylaş.</p>
+    <div class="code-input" id="inviteCodeDisplay" style="letter-spacing:0.3em; font-size:1.6rem;"></div>
+  </div>
+</div>
+
+<!-- Grup sohbeti oluştur modalı -->
+<div class="modal-backdrop hidden" id="groupModal">
+  <div class="modal-box" style="position:relative;">
+    <button class="modal-close" id="closeGroupModal">✕</button>
+    <h3>Grup sohbeti oluştur</h3>
+    <p class="sub">Eklemek istediğin arkadaşlarını seç.</p>
+    <div id="groupFriendCheckboxes" style="max-height:220px; overflow-y:auto; margin-bottom:14px;"></div>
+    <input class="text-field" id="newGroupName" placeholder="Grup adı (opsiyonel)">
+    <div class="form-error" id="groupError"></div>
+    <button class="primary-btn" id="createGroupBtn">Oluştur</button>
+  </div>
+</div>
+
+<script type="module">
+  import { auth } from "./firebase-config.js";
+  import { watchAuthState, signOutUser, updateStatus, updateAvatarEmoji } from "./auth.js";
+  import {
+    sendFriendRequest, acceptFriendRequest, declineFriendRequest,
+    removeFriend, blockUser, unblockUser,
+    listenFriends, listenIncomingRequests, listenBlocked,
+    findUserByUsernameTag
+  } from "./friends.js";
+  import {
+    createServer, joinServerByInvite, listenMyServers, getMyRole, listenMembers,
+    renameServer, deleteServer
+  } from "./servers.js";
+  import { createChannel, listenChannels, renameChannel, deleteChannel } from "./channels.js";
+  import {
+    channelMessagesRef, dmMessagesRef, sendMessage, editMessage, deleteMessage,
+    toggleReaction, listenMessages, renderFormattedText, messageMentionsUser,
+    setTyping, clearTyping, listenTyping
+  } from "./messages.js";
+  import {
+    getOrCreateDirectThread, createGroupThread, listenMyThreads, touchThread
+  } from "./dms.js";
+  import {
+    getFullProfile, isCurrentUserAdmin, banUser, unbanUser, muteUser, unmuteUser,
+    setUserTitle, setUserNickname, setUserNameColor, clearUserNameColor
+  } from "./moderation.js";
+  import {
+    joinVoiceChannel, leaveVoiceChannel, toggleMute, isInVoiceChannel, currentVoiceChannelPath
+  } from "./voice.js";
+
+  const appShell = document.getElementById("appShell");
+  let myProfile = null;
+  let myIsAdmin = false;
+  let myServers = [];
+  let myFriendsCache = [];
+  let currentServerId = null;
+  let currentChannelId = null;
+  let currentThreadId = null;      // DM/grup açıkken doluyor
+  let currentMessagesRef = null;   // hem kanal hem DM mesaj gönderiminde kullanılan ortak referans
+  let unsubChannels = null;
+  let unsubMessages = null;
+  let unsubThreads = null;
+  let unsubTyping = null;
+  let currentMyRole = null;
+  let typingThrottle = 0;
+  let replyTarget = null; // { id, preview }
+
+  // ---------- Auth ----------
+  watchAuthState((user, profile) => {
+    myProfile = profile;
+    myIsAdmin = profile.isAdmin === true;
+    appShell.style.display = "grid";
+    document.getElementById("myAvatarWrap").innerHTML = avatarHtml(profile, 40);
+    document.getElementById("myName").textContent = `${profile.username}#${profile.tag}`;
+    document.getElementById("statusSelect").value = profile.status;
+    document.getElementById("myStatusDot").className = `status-dot ${profile.status}`;
+
+    listenFriends(user.uid, (friends) => { myFriendsCache = friends; renderFriends(friends); });
+    listenIncomingRequests(user.uid, renderRequests);
+    listenBlocked(user.uid, renderBlocked);
+    listenMyServers((servers) => { myServers = servers; renderServerRail(); });
+    unsubThreads = listenMyThreads(renderThreadsList);
+  }, () => { window.location.href = "index.html"; });
+
+  document.getElementById("statusSelect").addEventListener("change", (e) => {
+    updateStatus(e.target.value);
+    document.getElementById("myStatusDot").className = `status-dot ${e.target.value}`;
+  });
+  document.getElementById("signOutBtn").addEventListener("click", () => signOutUser());
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const isLight = document.documentElement.dataset.theme === "light";
+    document.documentElement.dataset.theme = isLight ? "" : "light";
+    document.getElementById("themeToggle").textContent = isLight ? "Aydınlık" : "Karanlık";
+  });
+
+  // ---------- Görünüm geçişleri ----------
+  // ---------- Mobil görünüm geçişi (panel ↔ ana alan) ----------
+  function showMainOnMobile() { appShell.classList.add("show-main"); }
+  function showPanelOnMobile() { appShell.classList.remove("show-main"); }
+  document.getElementById("backFromChatBtn").addEventListener("click", showPanelOnMobile);
+  document.getElementById("backFromVoiceBtn").addEventListener("click", showPanelOnMobile);
+  document.getElementById("backFromHomeBtn").addEventListener("click", showPanelOnMobile);
+  document.getElementById("openAddFriendBtn").addEventListener("click", () => {
+    // Ana alanda "Arkadaş Ekle" ekranının görünür olduğundan emin ol, sonra mobilde ona geç
+    document.getElementById("textChannelMainView").classList.add("hidden");
+    document.getElementById("voiceChannelMainView").classList.add("hidden");
+    document.getElementById("homeMainView").classList.remove("hidden");
+    showMainOnMobile();
+  });
+
+  function showHomeView() {
+    currentServerId = null; currentChannelId = null; currentThreadId = null; currentMessagesRef = null;
+    if (unsubChannels) unsubChannels();
+    if (unsubMessages) unsubMessages();
+    showPanelOnMobile();
+    document.getElementById("friendsPanelView").classList.remove("hidden");
+    document.getElementById("serverPanelView").classList.add("hidden");
+    document.getElementById("homeMainView").classList.remove("hidden");
+    document.getElementById("textChannelMainView").classList.add("hidden");
+    document.getElementById("voiceChannelMainView").classList.add("hidden");
+    document.querySelectorAll(".rail-icon.server").forEach(el => el.classList.remove("active"));
+    document.getElementById("homeIcon").classList.add("active");
+    document.getElementById("showMembersBtn").classList.add("hidden");
+    document.getElementById("membersDrawer").classList.remove("open");
+    updateGlobalVoiceBar();
+  }
+  document.getElementById("homeIcon").addEventListener("click", showHomeView);
+
+  async function openServer(serverId) {
+    currentServerId = serverId;
+    currentMyRole = null;
+    const server = myServers.find(s => s.id === serverId);
+    showPanelOnMobile();
+    document.getElementById("friendsPanelView").classList.add("hidden");
+    document.getElementById("serverPanelView").classList.remove("hidden");
+    document.getElementById("serverNameLabel").textContent = server.name;
+    document.getElementById("homeIcon").classList.remove("active");
+    document.getElementById("serverSettingsBtn").classList.add("hidden");
+    document.querySelectorAll(".rail-icon.server").forEach(el => {
+      el.classList.toggle("active", el.dataset.serverId === serverId);
+    });
+
+    if (unsubChannels) unsubChannels();
+    unsubChannels = listenChannels(serverId, renderChannelList);
+
+    currentMyRole = await getMyRole(serverId);
+    document.getElementById("serverSettingsBtn").classList.toggle("hidden", currentMyRole !== "owner");
+    renderChannelList(lastChannelsSnapshot); // rol geldikten sonra staff butonlarını yeniden çiz
+    updateGlobalVoiceBar();
+  }
+  let lastChannelsSnapshot = [];
+
+  function renderServerRail() {
+    const list = document.getElementById("serverIconList");
+    list.innerHTML = myServers.map(s => `
+      <div class="rail-icon server" data-server-id="${s.id}" title="${s.name}">${s.iconText}</div>
+    `).join("");
+    list.querySelectorAll("[data-server-id]").forEach(el => {
+      el.addEventListener("click", () => openServer(el.dataset.serverId));
+    });
+  }
+
+  function renderChannelList(channels) {
+    lastChannelsSnapshot = channels;
+    const textList = document.getElementById("textChannelList");
+    const voiceList = document.getElementById("voiceChannelList");
+    const textChans = channels.filter(c => c.type === "text");
+    const voiceChans = channels.filter(c => c.type === "voice");
+    const isStaff = currentMyRole === "owner" || currentMyRole === "admin";
+
+    const staffBtns = (c) => isStaff ? `
+      <button class="mini-btn" data-editchan="${c.id}" data-name="${c.name}" title="Yeniden adlandır" style="margin-left:auto;">✎</button>
+      <button class="mini-btn danger" data-delchan="${c.id}" title="Sil">🗑</button>
+    ` : "";
+
+    textList.innerHTML = textChans.map(c => `
+      <div class="channel-row ${c.id === currentChannelId ? 'active' : ''}" style="display:flex; align-items:center;">
+        <span data-chan="${c.id}" data-type="text" style="flex:1; cursor:pointer;"><span class="hash">#</span> ${c.name}</span>
+        ${staffBtns(c)}
+      </div>
+    `).join("");
+    voiceList.innerHTML = voiceChans.map(c => `
+      <div class="channel-row" style="display:flex; align-items:center;">
+        <span data-chan="${c.id}" data-type="voice" style="flex:1; cursor:pointer;">🔊 ${c.name}</span>
+        ${staffBtns(c)}
+      </div>
+    `).join("");
+
+    textList.querySelectorAll("[data-chan]").forEach(el => {
+      el.addEventListener("click", () => openTextChannel(el.dataset.chan, el.textContent.trim()));
+    });
+    voiceList.querySelectorAll("[data-chan]").forEach(el => {
+      el.addEventListener("click", () => openVoiceChannel(el.dataset.chan, el.textContent.trim()));
+    });
+    document.querySelectorAll("[data-editchan]").forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const newName = prompt("Yeni kanal adı:", btn.dataset.name);
+        if (newName && newName.trim()) await renameChannel(currentServerId, btn.dataset.editchan, newName.trim());
+      };
+    });
+    document.querySelectorAll("[data-delchan]").forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        if (confirm("Bu kanalı silmek istediğine emin misin? Tüm mesajlar kaybolur.")) {
+          await deleteChannel(currentServerId, btn.dataset.delchan);
+          if (currentChannelId === btn.dataset.delchan) showHomeView();
+        }
+      };
+    });
+  }
+
+  function openTextChannel(channelId, name) {
+    currentChannelId = channelId;
+    currentThreadId = null;
+    showMainOnMobile();
+    document.getElementById("activeChatHeader").innerHTML =
+      `<span class="hash">#</span> <span id="activeChannelName">${name.replace("#", "").trim()}</span>`;
+    document.getElementById("homeMainView").classList.add("hidden");
+    document.getElementById("voiceChannelMainView").classList.add("hidden");
+    document.getElementById("textChannelMainView").classList.remove("hidden");
+
+    if (unsubMessages) unsubMessages();
+    currentMessagesRef = channelMessagesRef(currentServerId, channelId);
+    forceScrollBottom = true;
+    isFirstLoadForChat = true;
+    seenMessageIds = new Set();
+    unsubMessages = listenMessages(currentMessagesRef, renderMessages);
+    if (unsubTyping) unsubTyping();
+    unsubTyping = listenTyping(currentMessagesRef, renderTypingIndicator);
+    document.getElementById("showMembersBtn").classList.remove("hidden");
+    updateGlobalVoiceBar();
+  }
+
+  async function openDMThread(threadId, headerLabel) {
+    currentServerId = null; currentChannelId = null; currentThreadId = threadId;
+    showMainOnMobile();
+    document.getElementById("activeChatHeader").textContent = headerLabel;
+    document.getElementById("friendsPanelView").classList.remove("hidden");
+    document.getElementById("serverPanelView").classList.add("hidden");
+    document.getElementById("homeMainView").classList.add("hidden");
+    document.getElementById("voiceChannelMainView").classList.add("hidden");
+    document.getElementById("textChannelMainView").classList.remove("hidden");
+    document.getElementById("homeIcon").classList.add("active");
+    document.querySelectorAll(".rail-icon.server").forEach(el => el.classList.remove("active"));
+    document.getElementById("showMembersBtn").classList.add("hidden");
+    document.getElementById("membersDrawer").classList.remove("open");
+
+    if (unsubMessages) unsubMessages();
+    currentMessagesRef = dmMessagesRef(threadId);
+    forceScrollBottom = true;
+    isFirstLoadForChat = true;
+    seenMessageIds = new Set();
+    unsubMessages = listenMessages(currentMessagesRef, renderMessages);
+    if (unsubTyping) unsubTyping();
+    unsubTyping = listenTyping(currentMessagesRef, renderTypingIndicator);
+    updateGlobalVoiceBar();
+  }
+
+  let openedVoiceChannelId = null;
+  let voiceParticipantsCache = [];
+
+  function openVoiceChannel(channelId, name) {
+    showMainOnMobile();
+    openedVoiceChannelId = channelId;
+    document.getElementById("homeMainView").classList.add("hidden");
+    document.getElementById("textChannelMainView").classList.add("hidden");
+    document.getElementById("voiceChannelMainView").classList.remove("hidden");
+    document.getElementById("activeVoiceChannelName").textContent = name;
+    document.getElementById("voiceError").textContent = "";
+    renderVoiceScreenState();
+    updateGlobalVoiceBar();
+  }
+
+  function renderVoiceScreenState() {
+    const connectedHere = isInVoiceChannel() && currentVoiceChannelPath()?.channelId === openedVoiceChannelId;
+    document.getElementById("voiceJoinArea").classList.toggle("hidden", connectedHere);
+    document.getElementById("voiceControlsArea").classList.toggle("hidden", !connectedHere);
+    document.getElementById("voiceControlsArea").style.display = connectedHere ? "flex" : "none";
+  }
+
+  function renderVoiceParticipants(participants) {
+    voiceParticipantsCache = participants;
+    const list = document.getElementById("voiceParticipantsList");
+    list.innerHTML = participants.map(p => `
+      <div class="voice-participant connected ${p.muted ? 'muted' : ''}">
+        <div class="avatar-ring">${avatarHtml(p, 58)}</div>
+        <div class="vp-name">${p.username}</div>
+        <div class="vp-icon">${p.muted ? "🔇" : "🎤"}</div>
+      </div>
+    `).join("");
+  }
+
+  document.getElementById("voiceJoinBtn").addEventListener("click", async () => {
+    const errBox = document.getElementById("voiceError");
+    errBox.textContent = "";
+    try {
+      // Başka bir sesli kanaldaysam önce oradan ayrıl
+      if (isInVoiceChannel() && currentVoiceChannelPath()?.channelId !== openedVoiceChannelId) {
+        await leaveVoiceChannel();
+      }
+      await joinVoiceChannel(currentServerId, openedVoiceChannelId, {
+        onParticipants: renderVoiceParticipants,
+        onLocalStream: () => {},
+        onPeerStateChange: () => {}
+      });
+      renderVoiceScreenState();
+      updateGlobalVoiceBar();
+    } catch (err) {
+      errBox.textContent = "Mikrofona erişilemedi: " + err.message;
+    }
+  });
+
+  document.getElementById("voiceLeaveBtn").addEventListener("click", async () => {
+    await leaveVoiceChannel();
+    document.getElementById("voiceParticipantsList").innerHTML = "";
+    renderVoiceScreenState();
+  });
+
+  document.getElementById("voiceMuteBtn").addEventListener("click", () => {
+    const muted = toggleMute();
+    document.getElementById("voiceMuteBtn").textContent = muted ? "🔇 Sesi Aç" : "🎤 Sustur";
+  });
+
+  function updateGlobalVoiceBar() {
+    const bar = document.getElementById("globalVoiceBar");
+    const path = currentVoiceChannelPath();
+    const onVoiceScreenForThisChannel = !document.getElementById("voiceChannelMainView").classList.contains("hidden")
+      && openedVoiceChannelId === path?.channelId;
+
+    if (!isInVoiceChannel() || onVoiceScreenForThisChannel) {
+      bar.classList.add("hidden");
+      return;
+    }
+    bar.classList.remove("hidden");
+    document.getElementById("globalVoiceBarText").textContent = "🎙 Sesli kanaldasın";
+  }
+
+  document.getElementById("globalVoiceLeaveBtn").addEventListener("click", async () => {
+    await leaveVoiceChannel();
+    updateGlobalVoiceBar();
+    renderVoiceScreenState();
+  });
+  document.getElementById("globalVoiceReturnBtn").addEventListener("click", () => {
+    const path = currentVoiceChannelPath();
+    if (!path) return;
+    if (path.serverId !== currentServerId) openServer(path.serverId);
+    openedVoiceChannelId = path.channelId;
+    document.getElementById("homeMainView").classList.add("hidden");
+    document.getElementById("textChannelMainView").classList.add("hidden");
+    document.getElementById("voiceChannelMainView").classList.remove("hidden");
+    showMainOnMobile();
+    renderVoiceScreenState();
+    updateGlobalVoiceBar();
+  });
+
+  // ---------- DM / Grup listesi ----------
+  function renderThreadsList(threads) {
+    const list = document.getElementById("dmThreadsList");
+    if (!threads.length) { list.innerHTML = `<div class="empty-state" style="padding:16px;">Henüz mesajın yok.</div>`; return; }
+
+    list.innerHTML = threads.map(t => {
+      const me = auth.currentUser.uid;
+      let label, avatarProfile;
+      if (t.type === "direct") {
+        const otherUid = t.memberUids.find(u => u !== me);
+        const other = t.memberInfo[otherUid] || {};
+        label = `${other.username || "?"}#${other.tag || ""}`;
+        avatarProfile = other;
+      } else {
+        label = t.name || Object.values(t.memberInfo).filter((_, i) => t.memberUids[i] !== me)
+          .map(m => m.username).slice(0, 3).join(", ");
+        avatarProfile = null;
+      }
+      return `
+        <div class="friend-row" data-thread="${t.id}" data-label="${label.replace(/"/g,'&quot;')}" style="cursor:pointer;">
+          ${avatarHtml(avatarProfile, 40)}
+          <div style="flex:1;">
+            <div class="friend-name">${t.type === "group" ? "👥 " : ""}${label}</div>
+            <div class="friend-sub">${t.lastMessagePreview || "Henüz mesaj yok"}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    list.querySelectorAll("[data-thread]").forEach(row => {
+      row.addEventListener("click", () => openDMThread(row.dataset.thread, row.dataset.label));
+    });
+  }
+
+  // ---------- Mesajlar ----------
+  const PRESET_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+
+  let forceScrollBottom = true; // yeni bir kanal/DM açıldığında true yapılır
+  let seenMessageIds = new Set(); // hangi mesajları zaten "gördük" (ses tekrar çalmasın diye)
+
+  function messageMentionsMe(content) {
+    if (!myProfile) return false;
+    return messageMentionsUser(content, myProfile.username);
+  }
+
+  // Dosya yüklemeden, Web Audio API ile kısa bir "ping" sesi üretir
+  let audioCtx = null;
+  function playPingSound() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(1108, audioCtx.currentTime + 0.09);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.35);
+    } catch (e) { /* tarayıcı izin vermiyorsa sessizce geç */ }
+  }
+
+  let isFirstLoadForChat = true;
+
+  function renderMessages(messages) {
+    const scroll = document.getElementById("messagesScroll");
+    const wasNearBottom = forceScrollBottom ||
+      (scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 120);
+
+    // Yeni gelen (daha önce görülmemiş) mesajlar arasında beni etiketleyen var mı bak —
+    // ilk yüklemede (kanala yeni girildiğinde) ses çalmıyoruz, sadece gerçek yeni mesajlarda.
+    let shouldPing = false;
+    messages.forEach(m => {
+      if (!seenMessageIds.has(m.id)) {
+        seenMessageIds.add(m.id);
+        if (!isFirstLoadForChat && m.authorUid !== auth.currentUser.uid && messageMentionsMe(m.content)) {
+          shouldPing = true;
+        }
+      }
+    });
+    isFirstLoadForChat = false;
+    if (shouldPing) playPingSound();
+
+    scroll.innerHTML = messages.map(m => {
+      const isMine = m.authorUid === auth.currentUser.uid;
+      const reactionsHtml = Object.entries(m.reactions || {})
+        .filter(([, uids]) => uids.length > 0)
+        .map(([emoji, uids]) => `
+          <div class="reaction-chip ${uids.includes(auth.currentUser.uid) ? 'mine' : ''}" data-react="${m.id}" data-emoji="${emoji}">
+            ${emoji} ${uids.length}
+          </div>
+        `).join("");
+
+      const replyHtml = m.replyToPreview
+        ? `<div class="msg-reply-preview">↪ ${m.replyToPreview}</div>` : "";
+
+      const time = m.createdAt?.toDate ? m.createdAt.toDate().toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}) : "";
+      const mentionsMe = messageMentionsMe(m.content);
+
+      return `
+        <div class="message-row ${mentionsMe ? 'mention-hit' : ''}" data-msg-id="${m.id}">
+          ${avatarHtml({ photoURL: m.authorPhoto, avatarEmoji: m.authorAvatarEmoji }, 38, "msg-avatar")}
+          <div style="flex:1;">
+            ${replyHtml}
+            <div class="msg-head">
+              <span class="msg-author" style="cursor:pointer;" data-openprofile="${m.authorUid}">${m.authorUsername}</span>
+              <span class="msg-time">${time}</span>
+              ${m.editedAt ? '<span class="msg-edited">(düzenlendi)</span>' : ''}
+            </div>
+            <div class="msg-content">${renderFormattedText(m.content)}</div>
+            <div class="reaction-row">${reactionsHtml}</div>
+          </div>
+          <div class="msg-actions">
+            <button data-react-open="${m.id}" title="Tepki ver">😀</button>
+            <button data-reply="${m.id}" data-preview="${escapeAttr(m.authorUsername + ': ' + m.content.slice(0,60))}" title="Yanıtla">↪</button>
+            ${isMine ? `<button data-edit="${m.id}" data-current="${escapeAttr(m.content)}" title="Düzenle">✎</button>` : ''}
+            ${isMine ? `<button data-delete="${m.id}" title="Sil">🗑</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    if (wasNearBottom) scroll.scrollTop = scroll.scrollHeight;
+    forceScrollBottom = false;
+    attachMessageActionListeners();
+  }
+
+  // Bir kullanıcı objesine göre avatar HTML'i üretir: emoji seçilmişse onu, yoksa fotoğrafı/placeholder'ı gösterir
+  function avatarHtml(p, sizePx, cls = "avatar") {
+    if (p && p.avatarEmoji) {
+      return `<div class="${cls} avatar-emoji" style="width:${sizePx}px;height:${sizePx}px;font-size:${Math.round(sizePx*0.55)}px;">${p.avatarEmoji}</div>`;
+    }
+    const src = (p && p.photoURL) || `https://via.placeholder.com/${sizePx}`;
+    return `<img class="${cls}" src="${src}" style="width:${sizePx}px;height:${sizePx}px;">`;
+  }
+
+  function escapeAttr(str) {
+    return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  }
+
+  function attachMessageActionListeners() {
+    const ref = currentMessagesRef;
+
+    document.querySelectorAll("#messagesScroll [data-openprofile]").forEach(el => {
+      el.onclick = () => openUserProfile(el.dataset.openprofile);
+    });
+
+    document.querySelectorAll("[data-reply]").forEach(btn => {
+      btn.onclick = () => {
+        replyTarget = { id: btn.dataset.reply, preview: btn.dataset.preview };
+        document.getElementById("replyBar").classList.remove("hidden");
+        document.getElementById("replyBarText").textContent = `Yanıtlanıyor: ${btn.dataset.preview}`;
+        document.getElementById("messageInput").focus();
+      };
+    });
+
+    document.querySelectorAll("[data-edit]").forEach(btn => {
+      btn.onclick = async () => {
+        const newText = prompt("Mesajı düzenle:", btn.dataset.current);
+        if (newText !== null && newText.trim() !== "") {
+          await editMessage(ref, btn.dataset.edit, newText.trim());
+        }
+      };
+    });
+
+    document.querySelectorAll("[data-delete]").forEach(btn => {
+      btn.onclick = () => {
+        if (confirm("Bu mesajı silmek istediğine emin misin?")) {
+          deleteMessage(ref, btn.dataset.delete);
+        }
+      };
+    });
+
+    document.querySelectorAll("[data-react]").forEach(chip => {
+      chip.onclick = () => toggleReaction(ref, chip.dataset.react, chip.dataset.emoji);
+    });
+
+    document.querySelectorAll("[data-react-open]").forEach(btn => {
+      btn.onclick = (e) => {
+        document.querySelectorAll(".emoji-picker").forEach(p => p.remove());
+        const picker = document.createElement("div");
+        picker.className = "emoji-picker";
+        picker.innerHTML = PRESET_EMOJIS.map(em => `<button data-pick="${em}">${em}</button>`).join("");
+        document.body.appendChild(picker);
+        const rect = btn.getBoundingClientRect();
+        picker.style.top = `${rect.bottom + 4}px`;
+        picker.style.left = `${rect.left - 100}px`;
+        picker.querySelectorAll("[data-pick]").forEach(p => {
+          p.onclick = () => {
+            toggleReaction(ref, btn.dataset.reactOpen, p.dataset.pick);
+            picker.remove();
+          };
+        });
+        setTimeout(() => {
+          document.addEventListener("click", function closeOnce(ev) {
+            if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener("click", closeOnce); }
+          });
+        }, 0);
+      };
+    });
+  }
+
+  document.getElementById("cancelReplyBtn").addEventListener("click", () => {
+    replyTarget = null;
+    document.getElementById("replyBar").classList.add("hidden");
+  });
+
+  async function submitMessage() {
+    const input = document.getElementById("messageInput");
+    const content = input.value.trim();
+    if (!content || !currentMessagesRef) return;
+    try {
+      await sendMessage(currentMessagesRef, content, {
+        replyToId: replyTarget?.id || null,
+        replyToPreview: replyTarget?.preview || null
+      });
+      if (currentThreadId) await touchThread(currentThreadId, content);
+      input.value = "";
+      replyTarget = null;
+      document.getElementById("replyBar").classList.add("hidden");
+      clearTyping(currentMessagesRef);
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+  document.getElementById("sendMessageBtn").addEventListener("click", submitMessage);
+  document.getElementById("messageInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitMessage(); }
+  });
+  document.getElementById("messageInput").addEventListener("input", () => {
+    if (!currentMessagesRef) return;
+    const now = Date.now();
+    if (now - typingThrottle > 2500) { // en fazla 2.5 saniyede bir yazıyor bildirimi gönder
+      typingThrottle = now;
+      setTyping(currentMessagesRef);
+    }
+  });
+  document.getElementById("messageInput").addEventListener("blur", () => {
+    if (currentMessagesRef) clearTyping(currentMessagesRef);
+  });
+
+  function renderTypingIndicator(usernames) {
+    const el = document.getElementById("typingIndicator");
+    if (!usernames.length) { el.textContent = ""; return; }
+    if (usernames.length === 1) el.textContent = `${usernames[0]} yazıyor...`;
+    else el.textContent = `${usernames.join(", ")} yazıyor...`;
+  }
+
+  // ---------- Sunucu oluştur / katıl modalı ----------
+  const serverModal = document.getElementById("serverModal");
+  document.getElementById("addServerIcon").addEventListener("click", () => serverModal.classList.remove("hidden"));
+  document.getElementById("closeServerModal").addEventListener("click", () => serverModal.classList.add("hidden"));
+
+  document.querySelectorAll("[data-modaltab]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll("[data-modaltab]").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const isCreate = tab.dataset.modaltab === "create";
+      document.getElementById("createServerTab").classList.toggle("hidden", !isCreate);
+      document.getElementById("joinServerTab").classList.toggle("hidden", isCreate);
+    });
+  });
+
+  document.getElementById("createServerBtn").addEventListener("click", async () => {
+    const name = document.getElementById("newServerName").value.trim();
+    const errBox = document.getElementById("createServerError");
+    if (!name) return;
+    try {
+      const serverId = await createServer(name);
+      serverModal.classList.add("hidden");
+      document.getElementById("newServerName").value = "";
+      setTimeout(() => openServer(serverId), 400); // listener'ın güncellemesini bekle
+    } catch (err) { errBox.textContent = err.message; }
+  });
+
+  document.getElementById("joinServerBtn").addEventListener("click", async () => {
+    const code = document.getElementById("joinServerCode").value.trim();
+    const errBox = document.getElementById("joinServerError");
+    if (!code) return;
+    try {
+      const serverId = await joinServerByInvite(code);
+      serverModal.classList.add("hidden");
+      document.getElementById("joinServerCode").value = "";
+      setTimeout(() => openServer(serverId), 400);
+    } catch (err) { errBox.textContent = err.message; }
+  });
+
+  // ---------- Kanal ekle modalı ----------
+  const channelModal = document.getElementById("channelModal");
+  let newChannelType = "text";
+  document.getElementById("addChannelBtn").addEventListener("click", () => channelModal.classList.remove("hidden"));
+  document.getElementById("closeChannelModal").addEventListener("click", () => channelModal.classList.add("hidden"));
+  document.querySelectorAll("[data-channeltype]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll("[data-channeltype]").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      newChannelType = tab.dataset.channeltype;
+    });
+  });
+  document.getElementById("createChannelBtn").addEventListener("click", async () => {
+    const name = document.getElementById("newChannelName").value.trim();
+    if (!name || !currentServerId) return;
+    await createChannel(currentServerId, name, newChannelType);
+    document.getElementById("newChannelName").value = "";
+    channelModal.classList.add("hidden");
+  });
+
+  // ---------- Davet modalı ----------
+  const inviteModal = document.getElementById("inviteModal");
+  document.getElementById("serverInviteBtn").addEventListener("click", () => {
+    const server = myServers.find(s => s.id === currentServerId);
+    document.getElementById("inviteCodeDisplay").textContent = server?.inviteCode || "—";
+    inviteModal.classList.remove("hidden");
+  });
+  document.getElementById("closeInviteModal").addEventListener("click", () => inviteModal.classList.add("hidden"));
+
+  // ---------- Sunucu ayarları modalı ----------
+  const serverSettingsModal = document.getElementById("serverSettingsModal");
+  document.getElementById("serverSettingsBtn").addEventListener("click", () => {
+    const server = myServers.find(s => s.id === currentServerId);
+    document.getElementById("serverRenameInput").value = server?.name || "";
+    document.getElementById("serverSettingsError").textContent = "";
+    serverSettingsModal.classList.remove("hidden");
+  });
+  document.getElementById("closeServerSettingsModal").addEventListener("click", () => serverSettingsModal.classList.add("hidden"));
+
+  document.getElementById("serverRenameSaveBtn").addEventListener("click", async () => {
+    const newName = document.getElementById("serverRenameInput").value.trim();
+    const errBox = document.getElementById("serverSettingsError");
+    if (!newName) return;
+    try {
+      await renameServer(currentServerId, newName);
+      document.getElementById("serverNameLabel").textContent = newName;
+    } catch (err) { errBox.textContent = err.message; }
+  });
+
+  document.getElementById("serverDeleteBtn").addEventListener("click", async () => {
+    if (!confirm("Bu sunucuyu KALICI olarak silmek istediğine emin misin? Bu işlem geri alınamaz.")) return;
+    if (!confirm("Gerçekten emin misin? Tüm kanallar ve mesajlar erişilemez hale gelecek.")) return;
+    try {
+      await deleteServer(currentServerId);
+      serverSettingsModal.classList.add("hidden");
+      showHomeView();
+    } catch (err) { document.getElementById("serverSettingsError").textContent = err.message; }
+  });
+
+  // ---------- Kullanıcı profili / moderasyon modalı ----------
+  const profileModal = document.getElementById("profileModal");
+  let profileTargetUid = null;
+
+  window.openUserProfile = async function(uid) {
+    profileTargetUid = uid;
+    const p = await getFullProfile(uid);
+    if (!p) return;
+
+    document.getElementById("profileAvatarWrap").innerHTML = avatarHtml(p, 72);
+    document.getElementById("profileNameDisplay").innerHTML =
+      `${p.title ? `<span class="title-badge">${p.title}</span> ` : ""}<span style="${p.nameColor ? `color:${p.nameColor};` : ""}">${p.username}#${p.tag}</span>`;
+    document.getElementById("profileStatusDisplay").textContent =
+      `${p.customStatus || p.status}${p.isBanned ? " · 🚫 Banlı" : ""}${p.isMuted ? " · 🔇 Susturulmuş" : ""}`;
+
+    const adminSection = document.getElementById("profileAdminSection");
+    const isSelf = uid === auth.currentUser.uid;
+    document.getElementById("profileChangeAvatarBtn").classList.toggle("hidden", !isSelf);
+    if (myIsAdmin && !isSelf) {
+      adminSection.classList.remove("hidden");
+      document.getElementById("profileTitleInput").value = p.title || "";
+      document.getElementById("profileNicknameInput").value = p.username || "";
+      document.getElementById("profileColorInput").value = p.nameColor || "#e8873a";
+      document.getElementById("profileError").textContent = "";
+    } else {
+      adminSection.classList.add("hidden");
+    }
+    profileModal.classList.remove("hidden");
+  };
+
+  document.getElementById("closeProfileModal").addEventListener("click", () => profileModal.classList.add("hidden"));
+
+  function profileActionWrap(fn) {
+    return async () => {
+      const errBox = document.getElementById("profileError");
+      errBox.textContent = "";
+      try {
+        await fn();
+        window.openUserProfile(profileTargetUid); // ekranı tazele
+      } catch (err) {
+        errBox.textContent = err.message;
+      }
+    };
+  }
+
+  document.getElementById("profileBanBtn").addEventListener("click", profileActionWrap(() => banUser(profileTargetUid)));
+  document.getElementById("profileUnbanBtn").addEventListener("click", profileActionWrap(() => unbanUser(profileTargetUid)));
+  document.getElementById("profileMuteBtn").addEventListener("click", profileActionWrap(() => muteUser(profileTargetUid)));
+  document.getElementById("profileUnmuteBtn").addEventListener("click", profileActionWrap(() => unmuteUser(profileTargetUid)));
+  document.getElementById("profileTitleSaveBtn").addEventListener("click", profileActionWrap(() =>
+    setUserTitle(profileTargetUid, document.getElementById("profileTitleInput").value.trim())
+  ));
+  document.getElementById("profileNicknameSaveBtn").addEventListener("click", profileActionWrap(() =>
+    setUserNickname(profileTargetUid, document.getElementById("profileNicknameInput").value.trim())
+  ));
+  document.getElementById("profileColorSaveBtn").addEventListener("click", profileActionWrap(() =>
+    setUserNameColor(profileTargetUid, document.getElementById("profileColorInput").value)
+  ));
+  document.getElementById("profileColorClearBtn").addEventListener("click", profileActionWrap(() =>
+    clearUserNameColor(profileTargetUid)
+  ));
+
+  // ---------- Emoji avatar seçici ----------
+  const AVATAR_EMOJIS = [
+    "😀","😎","🤖","👻","🐱","🐶","🦊","🐼","🐨","🐸","🦁","🐯",
+    "🐵","🦄","🐙","🦉","🐺","🦋","🌵","🍀","🔥","⚡","🌙","⭐",
+    "🍉","🍕","🎮","🎧","⚽","🏆","💎","🚀"
+  ];
+  const avatarPickerModal = document.getElementById("avatarPickerModal");
+  document.getElementById("avatarPickerGrid").innerHTML =
+    AVATAR_EMOJIS.map(e => `<button data-emoji="${e}">${e}</button>`).join("");
+
+  function openAvatarPicker() { avatarPickerModal.classList.remove("hidden"); }
+  document.getElementById("myAvatarWrap").addEventListener("click", openAvatarPicker);
+  document.getElementById("profileChangeAvatarBtn").addEventListener("click", openAvatarPicker);
+  document.getElementById("closeAvatarPickerModal").addEventListener("click", () => avatarPickerModal.classList.add("hidden"));
+
+  document.querySelectorAll("#avatarPickerGrid [data-emoji]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await updateAvatarEmoji(btn.dataset.emoji);
+      myProfile.avatarEmoji = btn.dataset.emoji;
+      document.getElementById("myAvatarWrap").innerHTML = avatarHtml(myProfile, 40);
+      avatarPickerModal.classList.add("hidden");
+      if (!profileModal.classList.contains("hidden") && profileTargetUid === auth.currentUser.uid) {
+        window.openUserProfile(profileTargetUid); // profil kartı açıksa tazele
+      }
+    });
+  });
+
+  // ---------- Üye listesi çekmecesi ----------
+  const membersDrawer = document.getElementById("membersDrawer");
+  let unsubMembersDrawer = null;
+
+  document.getElementById("showMembersBtn").addEventListener("click", () => {
+    if (!currentServerId) return;
+    membersDrawer.classList.add("open");
+    if (unsubMembersDrawer) unsubMembersDrawer();
+    unsubMembersDrawer = listenMembers(currentServerId, renderMembersDrawer);
+  });
+  document.getElementById("closeMembersDrawer").addEventListener("click", () => {
+    membersDrawer.classList.remove("open");
+  });
+
+  function renderMembersDrawer(members) {
+    const list = document.getElementById("membersDrawerList");
+    const roleLabel = { owner: "Kurucu", admin: "Admin", member: "Üye" };
+    list.innerHTML = members.map(m => `
+      <div class="member-row" data-openprofile="${m.uid}">
+        ${avatarHtml(m, 36)}
+        <div style="flex:1;">
+          <div class="friend-name" style="font-size:0.88rem; ${m.nameColor ? `color:${m.nameColor};` : ''}">
+            ${m.title ? `<span class="title-badge">${m.title}</span> ` : ''}${m.username}#${m.tag}
+          </div>
+        </div>
+        <span class="role-badge">${roleLabel[m.role] || m.role}</span>
+      </div>
+    `).join("");
+    list.querySelectorAll("[data-openprofile]").forEach(el => {
+      el.onclick = () => openUserProfile(el.dataset.openprofile);
+    });
+  }
+
+  // ---------- Grup sohbeti modalı ----------
+  const groupModal = document.getElementById("groupModal");
+  document.getElementById("newGroupBtn").addEventListener("click", () => {
+    const box = document.getElementById("groupFriendCheckboxes");
+    if (!myFriendsCache.length) {
+      box.innerHTML = `<p class="friend-sub">Grup açmak için önce arkadaş eklemelisin.</p>`;
+    } else {
+      box.innerHTML = myFriendsCache.map(f => `
+        <label style="display:flex; align-items:center; gap:8px; padding:6px 4px; font-size:0.88rem;">
+          <input type="checkbox" value="${f.uid}"> ${f.username}#${f.tag}
+        </label>
+      `).join("");
+    }
+    groupModal.classList.remove("hidden");
+  });
+  document.getElementById("closeGroupModal").addEventListener("click", () => groupModal.classList.add("hidden"));
+  document.getElementById("createGroupBtn").addEventListener("click", async () => {
+    const checked = [...document.querySelectorAll("#groupFriendCheckboxes input:checked")].map(c => c.value);
+    const errBox = document.getElementById("groupError");
+    if (checked.length < 2) { errBox.textContent = "En az 2 arkadaş seç (grup için)"; return; }
+    const name = document.getElementById("newGroupName").value.trim();
+    try {
+      const threadId = await createGroupThread(checked, name);
+      groupModal.classList.add("hidden");
+      document.getElementById("newGroupName").value = "";
+      openDMThread(threadId, name || "Grup Sohbeti");
+    } catch (err) { errBox.textContent = err.message; }
+  });
+
+  // ---------- Arkadaşlar (Faz 1'den) ----------
+  document.getElementById("addFriendForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const val = document.getElementById("addFriendInput").value.trim();
+    const [username, tag] = val.split("#");
+    if (!username || !tag) return alert("Format: kullaniciadi#1234");
+    try {
+      const target = await findUserByUsernameTag(username, tag);
+      if (!target) return alert("Kullanıcı bulunamadı.");
+      await sendFriendRequest(target.uid);
+      document.getElementById("addFriendInput").value = "";
+      alert("İstek gönderildi!");
+    } catch (err) { alert(err.message); }
+  });
+
+  function renderRequests(requests) {
+    const list = document.getElementById("requestsList");
+    document.getElementById("reqLabel").style.display = requests.length ? "block" : "none";
+    list.innerHTML = requests.map(r => `
+      <div class="request-row">
+        ${avatarHtml({ photoURL: r.fromPhoto, avatarEmoji: r.fromAvatarEmoji }, 40)}
+        <div style="flex:1;">
+          <div class="friend-name">${r.fromUsername}#${r.fromTag}</div>
+          <div class="friend-sub">Arkadaşlık isteği</div>
+        </div>
+        <button class="mini-btn accept" data-accept="${r.id}" data-from="${r.from}" data-to="${r.to}">Kabul</button>
+        <button class="mini-btn danger" data-decline="${r.id}">Reddet</button>
+      </div>
+    `).join("");
+    list.querySelectorAll("[data-accept]").forEach(btn => {
+      btn.onclick = () => acceptFriendRequest(btn.dataset.accept, btn.dataset.from, btn.dataset.to);
+    });
+    list.querySelectorAll("[data-decline]").forEach(btn => {
+      btn.onclick = () => declineFriendRequest(btn.dataset.decline);
+    });
+  }
+
+  function renderFriends(friends) {
+    const list = document.getElementById("friendsList");
+    if (!friends.length) { list.innerHTML = `<div class="empty-state">Henüz arkadaşın yok.</div>`; return; }
+    list.innerHTML = friends.map(f => `
+      <div class="friend-row">
+        <div class="avatar-wrap" data-openprofile="${f.uid}" style="cursor:pointer;">
+          ${avatarHtml(f, 40)}
+          <span class="status-dot ${f.status}"></span>
+        </div>
+        <div style="flex:1; cursor:pointer;" data-openprofile="${f.uid}">
+          <div class="friend-name" style="${f.nameColor ? `color:${f.nameColor};` : ''}">
+            ${f.title ? `<span class="title-badge">${f.title}</span> ` : ''}${f.username}#${f.tag}
+          </div>
+          <div class="friend-sub">${f.customStatus || f.status}</div>
+        </div>
+        <button class="mini-btn" data-dm="${f.uid}" data-label="${(f.username+'#'+f.tag).replace(/"/g,'&quot;')}">Mesaj</button>
+        <button class="mini-btn" data-openprofile="${f.uid}" title="Profil / Yönetim">⋮</button>
+        <button class="mini-btn danger" data-remove="${f.uid}">Sil</button>
+        <button class="mini-btn danger" data-block="${f.uid}">Engelle</button>
+      </div>
+    `).join("");
+    list.querySelectorAll("[data-dm]").forEach(btn => {
+      btn.onclick = async () => {
+        const threadId = await getOrCreateDirectThread(btn.dataset.dm);
+        openDMThread(threadId, btn.dataset.label);
+      };
+    });
+    list.querySelectorAll("[data-openprofile]").forEach(el => {
+      el.onclick = () => openUserProfile(el.dataset.openprofile);
+    });
+    list.querySelectorAll("[data-remove]").forEach(btn => {
+      btn.onclick = () => removeFriend(auth.currentUser.uid, btn.dataset.remove);
+    });
+    list.querySelectorAll("[data-block]").forEach(btn => {
+      btn.onclick = () => { if (confirm("Bu kişiyi engellemek istediğine emin misin?")) blockUser(auth.currentUser.uid, btn.dataset.block); };
+    });
+  }
+
+  function renderBlocked(blocked) {
+    const list = document.getElementById("blockedList");
+    document.getElementById("blockedLabel").style.display = blocked.length ? "block" : "none";
+    list.innerHTML = blocked.map(b => `
+      <div class="friend-row">
+        ${avatarHtml(b, 40)}
+        <div style="flex:1;"><div class="friend-name">${b.username}#${b.tag}</div></div>
+        <button class="mini-btn" data-unblock="${b.uid}">Kaldır</button>
+      </div>
+    `).join("");
+    list.querySelectorAll("[data-unblock]").forEach(btn => {
+      btn.onclick = () => unblockUser(auth.currentUser.uid, btn.dataset.unblock);
+    });
+  }
+</script>
+
+</body>
+</html>
